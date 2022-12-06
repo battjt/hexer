@@ -1,5 +1,3 @@
-use std::sync::{Arc, Mutex};
-
 use fltk::{
     app::App,
     frame::Frame,
@@ -28,11 +26,11 @@ fn main() {
     window.end();
     window.show();
 
-    let fields = (dec, hex, bin);
-    dec.set_callback(create_cb(|i| i.value().parse().unwrap(), fields));
+    let fields = (dec.clone(), hex.clone(), bin.clone());
+    dec.set_callback(create_cb(|i| i.value().parse().unwrap(), fields.clone()));
     hex.set_callback(create_cb(
         |i| u64::from_str_radix(i.value().as_str(), 16).unwrap(),
-        fields,
+        fields.clone(),
     ));
     bin.set_callback(create_cb(|i| i.value().parse().unwrap(), fields));
 
@@ -41,12 +39,12 @@ fn main() {
 
 fn create_cb(parse_fn: fn(&Input) -> u64, fields: (Input, Input, Input)) -> impl Fn(&mut Input) {
     move |input: &mut Input| {
-        update(parse_fn(input), fields);
+        update(parse_fn(input), fields.clone());
     }
 }
 
 fn update(value: u64, fields: (Input, Input, Input)) {
-    let (dec, hex, bin) = fields;
+    let (mut dec, mut hex, mut bin) = fields;
     dec.set_value(value.to_string().as_str());
     hex.set_value(&format!("{:X}", value));
     bin.set_value(&format!("{:b}", value));
