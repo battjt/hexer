@@ -1,51 +1,62 @@
 use fltk::{
     app::App,
-    frame::Frame,
+    button::Button,
+    enums::Color,
+    group::Pack,
     input::Input,
     prelude::{GroupExt, InputExt, WidgetExt},
     window::Window,
 };
-
+#[derive(Clone)]
+struct Field {
+    input: Input,
+    radix: u32,
+}
 fn main() {
+    let radixes = [("bin", 2), ("dec", 10), ("hex", 16), ("7", 7), ("17", 17)];
+
     let application = App::default();
-    let mut window = Window::default().with_label("Hexer").with_size(200, 100);
-    let frame = Frame::default().with_size(100, 20).center_x(&window);
-    let mut dec = Input::default()
-        .with_label("dec")
-        .size_of(&frame)
-        .below_of(&frame, 0);
-    let mut hex = Input::default()
-        .with_label("hex")
-        .size_of(&frame)
-        .below_of(&dec, 0);
-    let mut bin = Input::default()
-        .with_label("bin")
-        .size_of(&frame)
-        .below_of(&hex, 0);
+    let height = 20 * (radixes.len() + 1) as i32;
+    let mut window = Window::default()
+        .with_label("Hexer")
+        .with_size(200, height + 20);
+    let pack = Pack::default().with_size(100, height).center_of_parent();
+    let fields = radixes.map(|d| Field {
+        input: Input::default().with_label(d.0).with_size(100, 20),
+        radix: d.1,
+    });
+    Button::default()
+        .with_label("Close")
+        .with_size(60, 20)
+        .set_callback(move |_| application.quit());
+    pack.end();
     window.make_resizable(true);
     window.end();
     window.show();
 
-    let fields = (dec.clone(), hex.clone(), bin.clone());
-    dec.set_callback(create_cb(|i| i.value().parse().unwrap(), fields.clone()));
-    hex.set_callback(create_cb(
-        |i| u64::from_str_radix(i.value().as_str(), 16).unwrap(),
-        fields.clone(),
-    ));
-    bin.set_callback(create_cb(|i| i.value().parse().unwrap(), fields));
+    for mut e in fields.clone() {
+        let default_color = e.input.color();
+        e.input.set_callback({
+            let fields = fields.clone();
+            move |input: &mut Input| {
+                if let Some(value) = u64::from_str_radix(input.value().as_str(), e.radix).ok() {
+                    for field in fields.clone() {
+                        let mut field = field.clone();
+                        field.input.set_color(default_color);
+                        field.input.set_value(&match field.radix {
+                            10 => format!("{}", value),
+                            16 => format!("{:X}", value),
+                            2 => format!("{:b}", value),
+                            _ => "input only".to_string(),
+                        })
+                    }
+                } else {
+                    input.set_color(Color::Yellow);
+                    input.redraw();
+                };
+            }
+        })
+    }
 
     application.run();
-}
-
-fn create_cb(parse_fn: fn(&Input) -> u64, fields: (Input, Input, Input)) -> impl Fn(&mut Input) {
-    move |input: &mut Input| {
-        update(parse_fn(input), fields.clone());
-    }
-}
-
-fn update(value: u64, fields: (Input, Input, Input)) {
-    let (mut dec, mut hex, mut bin) = fields;
-    dec.set_value(value.to_string().as_str());
-    hex.set_value(&format!("{:X}", value));
-    bin.set_value(&format!("{:b}", value));
 }
